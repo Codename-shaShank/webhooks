@@ -62,3 +62,25 @@ jobs:
           token: ${{ github.token }}
           issue-number: ${{ github.event.pull_request.number }}
           body-file: ${{ env.GEM_REVIEW_PATH }}
+
+      - name: Notify Slack
+        if: github.actor == 'dependabot[bot]'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+
+          echo "Sending message to Slack"
+
+          payload=$(jq -n \
+            --arg title "$PR_TITLE" \
+            --arg url "$PR_URL" \
+            --rawfile body ai_review.md \
+            '{
+              text: ("Dependabot update: *" + $title + "*\n" + $url + "\n\n" + $body)
+            }')
+
+          curl -X POST -H 'Content-type: application/json' \
+            --data "$payload" \
+            "$SLACK_WEBHOOK_URL"
