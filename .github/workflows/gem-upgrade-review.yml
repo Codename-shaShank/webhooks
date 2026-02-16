@@ -1,0 +1,64 @@
+name: Gem Upgrade Review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "Gemfile"
+      - "Gemfile.lock"
+      - "*.gemspec"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  
+jobs:
+  review-gems:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GEM_REVIEW_PATH: gem_review.md
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0  # we need history to read base Gemfile.lock
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"   # or your repo's Ruby version
+          bundler-cache: false
+
+      - name: Generate dependency review comment
+        run: ruby .github/scripts/gem_diff.rb
+
+      - name: Verify gem_review.md exists
+        run: |
+          test -f "$GEM_REVIEW_PATH"
+          test -s "$GEM_REVIEW_PATH"
+          echo "=== gem_review.md contents ==="
+          cat "$GEM_REVIEW_PATH"
+          echo "=== end ==="
+
+      - name: Run Gemini AI review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: ruby .github/scripts/ai_review.rb gem_changes.json > ai_review.md
+
+
+      - name: Append AI review to final comment
+        run: |
+          echo "" >> $GEM_REVIEW_PATH
+          cat ai_review.md >> $GEM_REVIEW_PATH
+
+      - name: Comment on PR with dependency summary
+        if: github.event.pull_request != null
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ github.token }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-file: ${{ env.GEM_REVIEW_PATH }}
