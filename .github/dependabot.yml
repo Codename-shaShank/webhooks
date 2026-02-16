@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: "bundler"
+    directory: "/"           # Gemfile at repo root
+    schedule:
+      interval: "daily"      # Testing: daily updates
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 20
+    labels:
+      - "dependabot"
+      - "dependencies"
+    # Critical/framework gems we DON'T want auto-updated by the bot
+    # ignore:
+    #   - dependency-name: "rails"
+    #   - dependency-name: "karafka"
+    #   - dependency-name: "ddtrace"
+    #   - dependency-name: "ruby"        # ruby version in gemfiles/lockfiles
